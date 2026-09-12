@@ -15,9 +15,11 @@
     "build": "npx tsc -b",
     "test": "node --experimental-loader ./ts-loader.js --experimental-strip-types test-runner.js",
     "test:watch": "node --experimental-loader ./ts-loader.js --experimental-strip-types test-runner.js",
-    "test:coverage": "node --experimental-loader ./ts-loader.js --experimental-strip-types test-runner.js"
+    "test:coverage": "node --experimental-loader ./ts-loader.js --experimental-strip-types test-runner.js",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.13.1",
     "@types/ws": "^8.5.10",
     "typescript": "^5.3.3",

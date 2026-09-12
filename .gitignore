@@ -19,7 +19,12 @@ vitest-shim.d.ts
 vitest-shim.d.ts.map
 test_output.txt
 test_env.txt
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 .DS_Store
 *.log
 .env
 .env.*
+.gitnexus
