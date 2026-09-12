@@ -1,0 +1,24 @@
+{
+  "name": "@monopoly/web",
+  "version": "1.0.0",
+  "description": "Monopoly Vietnam Tycoon Web UI Package",
+  "type": "module",
+  "main": "index.html",
+  "scripts": {
+    "dev": "node serve.js",
+    "start": "node serve.js",
+    "build": "node serve.js",
+    "preview": "node serve.js"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "vietnam-tycoon",
+  "version": "1.0.0",
+  "description": "Đại Gia Việt Nam - Core Game Engine & Room Server",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "node --experimental-loader ./ts-loader.js --experimental-strip-types dev.js",
+    "start": "node --experimental-loader ./ts-loader.js --experimental-strip-types dev.js",
+    "dev:web": "node packages/web/serve.js",
+    "dev:server": "node --experimental-loader ./ts-loader.js --experimental-strip-types packages/server/serve.js",
+    "build": "npx tsc -b",
+    "test": "node --experimental-loader ./ts-loader.js --experimental-strip-types test-runner.js",
+    "test:watch": "node --experimental-loader ./ts-loader.js --experimental-strip-types test-runner.js",
+    "test:coverage": "node --experimental-loader ./ts-loader.js --experimental-strip-types test-runner.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.2",
+    "ws": "^8.16.0"
+  }
+}

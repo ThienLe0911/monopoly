@@ -1,0 +1,15 @@
+{
+  "name": "@monopoly/server",
+  "version": "1.0.0",
+  "description": "Room Server and WebSocket Gateway for Vietnam Tycoon",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@monopoly/engine": "1.0.0",
+    "ws": "^8.16.0"
+  }
+}
