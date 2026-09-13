@@ -283,13 +283,14 @@ export function startWebSocketServer(port = 8080) {
     });
   });
 
-  server.listen(port, '127.0.0.1', () => {
-    console.log(`🚀 [WebSocket Server] Live on ws://localhost:${port}`);
+  const host = process.env.HOST || '0.0.0.0';
+  server.listen(port, host, () => {
+    console.log(`🚀 [WebSocket Server] Live on ws://${host}:${port}`);
   });
 
   return server;
 }
 
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('packages/server/serve.js')) {
-  startWebSocketServer(8080);
+  startWebSocketServer(process.env.PORT ? Number(process.env.PORT) : 8080);
 }
