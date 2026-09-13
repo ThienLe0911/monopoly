@@ -208,4 +208,6 @@ export class SocketClientService {
   }
 }
 
-export const socketService = new SocketClientService();
+const configuredWsUrl = typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_WS_URL : undefined;
+
+export const socketService = new SocketClientService(configuredWsUrl || 'ws://localhost:8080');

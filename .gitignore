@@ -27,4 +27,5 @@ playwright/.cache/
 *.log
 .env
 .env.*
+!.env.example
 .gitnexus
