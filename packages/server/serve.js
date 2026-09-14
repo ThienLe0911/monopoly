@@ -274,13 +274,22 @@ export function startWebSocketServer(port = 8080) {
       handleClientMessage(conn, message);
     });
 
-    conn.socket.on('close', () => {
+    const handleDisconnect = () => {
       if (conn.roomCode && conn.playerId) {
         roomManager.disconnectPlayer(conn.roomCode, conn.playerId);
         broadcastRoomState(conn.roomCode);
       }
       connections.delete(conn);
-    });
+    };
+
+    conn.socket.on('close', handleDisconnect);
+
+    // A client can drop mid-write (closed tab, network blip, mobile going to
+    // background) and the underlying socket then errors (e.g. EPIPE) on our
+    // next write. WebSocketClient re-emits that as 'error' on itself; without
+    // a listener here Node treats it as an unhandled error and crashes the
+    // whole process, killing every other room's game in progress.
+    conn.socket.on('error', handleDisconnect);
   });
 
   const host = process.env.HOST || '0.0.0.0';
