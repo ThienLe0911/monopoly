@@ -190,13 +190,18 @@ export class WebSocketServer {
 
         case 'RECONNECT': {
           const { roomCode, playerId } = payload;
-          conn.playerId = playerId;
-          conn.roomCode = roomCode.toUpperCase();
-
           const syncData = this.roomManager.getReconnectSyncData(roomCode, playerId);
+
           if (!syncData) {
-            this.sendToClient(conn, 'ERROR', { message: 'Room not found for reconnect' });
+            this.sendToClient(conn, 'ERROR', { message: 'Room or player not found for reconnect' });
           } else {
+            // Only bind this connection to the identity once it is verified -
+            // binding it unconditionally above would let a failed/forged
+            // reconnect attempt still leave the connection authorized to act
+            // as that (possibly real, possibly guessed) playerId afterwards.
+            conn.playerId = playerId;
+            conn.roomCode = roomCode.toUpperCase();
+
             this.sendToClient(conn, 'RECONNECT_SYNC', syncData);
             this.broadcastRoomState(roomCode);
           }

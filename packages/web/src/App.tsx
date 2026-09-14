@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type {
   RoomState,
   GameState,
@@ -11,22 +11,73 @@ import { LandingView } from './components/LandingView';
 import { LobbyView } from './components/LobbyView';
 import { MainGameView } from './components/MainGameView';
 
+// Persisted across page reloads so a refresh (or a crashed tab) can resume as
+// the same player instead of joining as a brand-new one.
+const DEVICE_ID_KEY = 'monopoly_device_id';
+const LAST_ROOM_KEY = 'monopoly_last_room';
+
+function getOrCreateDeviceId(): string {
+  try {
+    const existing = localStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const fresh = 'user_' + Math.random().toString(36).substring(2, 9);
+    localStorage.setItem(DEVICE_ID_KEY, fresh);
+    return fresh;
+  } catch {
+    // localStorage unavailable (private browsing, disabled storage, etc.) -
+    // fall back to a session-only id; reconnect-after-reload just won't work.
+    return 'user_' + Math.random().toString(36).substring(2, 9);
+  }
+}
+
+function getPersistedRoomCode(): string | null {
+  try {
+    return localStorage.getItem(LAST_ROOM_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function persistRoomCode(roomCode: string | null): void {
+  try {
+    if (roomCode) {
+      localStorage.setItem(LAST_ROOM_KEY, roomCode);
+    } else {
+      localStorage.removeItem(LAST_ROOM_KEY);
+    }
+  } catch {
+    // ignore - reconnect-after-reload just won't work this session
+  }
+}
+
 export const App: React.FC = () => {
   const [socketStatus, setSocketStatus] = useState<SocketStatus>('DISCONNECTED');
   const [currentView, setCurrentView] = useState<'landing' | 'lobby' | 'game'>('landing');
 
   // App User Info
-  const [currentUserId, setCurrentUserId] = useState<string>(() => {
-    return 'user_' + Math.random().toString(36).substring(2, 9);
-  });
+  const [currentUserId] = useState<string>(getOrCreateDeviceId);
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [eventLogs, setEventLogs] = useState<GameEventLog[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // While true, we're trying to resume a session from a previous page load -
+  // hide the landing form so it doesn't flash before the resume completes.
+  const [isRestoringSession, setIsRestoringSession] = useState<boolean>(() => !!getPersistedRoomCode());
+  const isRestoringSessionRef = useRef(isRestoringSession);
+  isRestoringSessionRef.current = isRestoringSession;
+
   useEffect(() => {
-    // Initialize Socket connection
-    socketService.connect().catch((err) => console.error(err));
+    // Initialize Socket connection, then try to resume whichever room this
+    // device was last in (survives a page reload, unlike in-memory state).
+    socketService.connect().then(() => {
+      const persistedRoom = getPersistedRoomCode();
+      if (persistedRoom) {
+        socketService.sendReconnect(persistedRoom, currentUserId);
+      } else {
+        setIsRestoringSession(false);
+      }
+    }).catch((err) => console.error(err));
 
     const unsubscribeStatus = socketService.onStatusChange((status) => {
       setSocketStatus(status);
@@ -36,12 +87,14 @@ export const App: React.FC = () => {
       setRoomState(data);
       setCurrentView('lobby');
       setErrorMessage(null);
+      persistRoomCode(data.roomCode);
     });
 
     const unsubJoined = socketService.on('ROOM_JOINED', (data) => {
       setRoomState(data);
       setCurrentView(data.gameStarted ? 'game' : 'lobby');
       setErrorMessage(null);
+      persistRoomCode(data.roomCode);
     });
 
     const unsubRoomUpdate = socketService.on('ROOM_STATE_UPDATE', (data) => {
@@ -58,7 +111,11 @@ export const App: React.FC = () => {
     });
 
     const unsubSync = socketService.on('RECONNECT_SYNC', (data) => {
-      if (data.roomState) setRoomState(data.roomState);
+      setIsRestoringSession(false);
+      if (data.roomState) {
+        setRoomState(data.roomState);
+        persistRoomCode(data.roomState.roomCode);
+      }
       if (data.gameState) setGameState(data.gameState);
       if (data.eventLogs) setEventLogs(data.eventLogs);
       if (data.gameState) {
@@ -69,6 +126,13 @@ export const App: React.FC = () => {
     });
 
     const unsubError = socketService.on('ERROR', (data) => {
+      if (isRestoringSessionRef.current) {
+        // The session we tried to resume no longer exists (room closed,
+        // player removed, server restarted, ...) - drop it so we don't keep
+        // retrying it on every future reload.
+        setIsRestoringSession(false);
+        persistRoomCode(null);
+      }
       setErrorMessage(data.message);
       setTimeout(() => setErrorMessage(null), 5000);
     });
@@ -117,6 +181,7 @@ export const App: React.FC = () => {
     setEventLogs([]);
     setCurrentView('landing');
     socketService.setCurrentRoomInfo(null, null);
+    persistRoomCode(null);
   };
 
   const handleSendCommand = (command: PlayerCommand) => {
@@ -127,7 +192,14 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-root">
-      {currentView === 'landing' && (
+      {currentView === 'landing' && isRestoringSession && (
+        <div style={styles.restoringScreen}>
+          <div style={styles.restoringBadge}>🎲 ĐẠI GIA VIỆT NAM</div>
+          <p style={styles.restoringText}>Đang khôi phục phiên chơi trước đó...</p>
+        </div>
+      )}
+
+      {currentView === 'landing' && !isRestoringSession && (
         <LandingView
           onCreateRoom={handleCreateRoom}
           onJoinRoom={handleJoinRoom}
@@ -159,4 +231,24 @@ export const App: React.FC = () => {
       )}
     </div>
   );
+};
+
+const styles: Record<string, React.CSSProperties> = {
+  restoringScreen: {
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+  },
+  restoringBadge: {
+    fontSize: '1.1rem',
+    fontWeight: '800',
+    color: 'var(--color-gold)',
+  },
+  restoringText: {
+    color: 'var(--text-secondary)',
+    fontSize: '0.95rem',
+  },
 };

@@ -194,6 +194,15 @@ export class RoomManager {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return null;
 
+    // Only an existing member of the room may reconnect into it - otherwise
+    // any client that learns a room code could supply an arbitrary playerId
+    // and both read the full room/game state and have their connection bound
+    // to that identity for subsequent commands.
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) return null;
+
+    player.isOnline = true;
+
     const engine = this.engines.get(roomCode.toUpperCase());
     return {
       roomState: room,

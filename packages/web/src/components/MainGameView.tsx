@@ -122,6 +122,10 @@ export const MainGameView: React.FC<MainGameViewProps> = ({
       const hasDiceRolled = newLogs.some((l) => l.type === 'DICE_ROLLED');
       if (hasDiceRolled) {
         isAnimatingRef.current = true;
+        // Clear any stale queue from a previous turn now, before this turn's
+        // notifications (rent paid, tax, etc.) are queued below — clearing it
+        // afterwards in triggerDiceAndStepMovement would discard them instead.
+        pendingNotifQueue.current = [];
       }
 
       // 2. First pass: process notifications (delayed if isAnimatingRef.current is true)
@@ -200,7 +204,6 @@ export const MainGameView: React.FC<MainGameViewProps> = ({
 
     // Synchronously ensure animation block is active
     isAnimatingRef.current = true;
-    pendingNotifQueue.current = [];
     pendingSecondMovementRef.current = null;
     pendingCardLogRef.current = null;
 
@@ -222,11 +225,15 @@ export const MainGameView: React.FC<MainGameViewProps> = ({
     const doublesJailLog = currentBatchLogs.find(
       (l) => l.type === 'SENT_TO_JAIL_DOUBLES' && l.playerId === activePlayerId
     );
+    // No LANDED_ON_TILE log means the player never actually moved this roll — e.g. a failed
+    // jail roll (STILL_IN_JAIL) or an unpaid jail-fine debt (DEBT_STARTED). The engine only
+    // ever moves a player through resolveLandedTile, which always logs LANDED_ON_TILE, so in
+    // its absence the token must stay put rather than be walked forward by the dice total.
     let firstTargetPos = doublesJailLog
       ? JAIL_TILE_ID
       : landedLog
         ? landedLog.payload.tileId
-        : (currentPos + (diceLog.payload.total || 0)) % 40;
+        : currentPos;
     const firstStageInstant = !!doublesJailLog;
 
     // Determine Stage 2 target position (if card or jail effect causes secondary movement)
